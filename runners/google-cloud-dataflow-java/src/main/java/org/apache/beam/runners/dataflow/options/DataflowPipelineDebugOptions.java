@@ -218,6 +218,18 @@ public interface DataflowPipelineDebugOptions extends ExperimentalOptions, Pipel
 
   void setSaveHeapDumpsToGcsPath(String gcsPath);
 
+  /**
+   * The GC thrashing threshold (0.00 - 100.00) for every period. If the time spent on garbage
+   * collection in one period exceeds this threshold, that period is considered to be in GC
+   * thrashing.
+   */
+  @Description(
+      "[EXPERIMENTAL] Percentage of time spent on GC for a server to be considered in GC thrashing (0.00-100.00).")
+  @Experimental
+  Double getGcThrashingPercentagePerPeriod();
+
+  void setGcThrashingPercentagePerPeriod(Double gcThrashingPercentagePerPeriod);
+
   /** Creates a {@link Stager} object using the class specified in {@link #getStagerClass()}. */
   class StagerFactory implements DefaultValueFactory<Stager> {
     @Override
