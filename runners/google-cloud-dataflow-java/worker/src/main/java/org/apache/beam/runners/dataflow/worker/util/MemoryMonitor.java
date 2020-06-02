@@ -195,17 +195,29 @@ public class MemoryMonitor implements Runnable, StatusDataProvider {
 
   private final File localDumpFolder;
 
+  /**
+   * The GC thrashing threshold (0.00 - 100.00) for every period. If the time spent on garbage
+   * collection in one period exceeds this threshold, that period is considered to be in GC
+   * thrashing.
+   */
+  private final double gcThrashingPercentagePerPeriod;
+
   public static MemoryMonitor fromOptions(PipelineOptions options) {
     DataflowPipelineDebugOptions debugOptions = options.as(DataflowPipelineDebugOptions.class);
     String uploadToGCSPath = debugOptions.getSaveHeapDumpsToGcsPath();
     boolean canDumpHeap = uploadToGCSPath != null || debugOptions.getDumpHeapOnOOM();
+    double gcThrashingPercentagePerPeriod =
+        debugOptions.getGcThrashingPercentagePerPeriod() != null
+            ? debugOptions.getGcThrashingPercentagePerPeriod()
+            : GC_THRASHING_PERCENTAGE_PER_PERIOD;
     return new MemoryMonitor(
         new SystemGCStatsProvider(),
         DEFAULT_SLEEP_TIME_MILLIS,
         DEFAULT_SHUT_DOWN_AFTER_NUM_GCTHRASHING,
         canDumpHeap,
         uploadToGCSPath,
-        getLoggingDir());
+        getLoggingDir(),
+        gcThrashingPercentagePerPeriod);
   }
 
   @VisibleForTesting
@@ -215,14 +227,16 @@ public class MemoryMonitor implements Runnable, StatusDataProvider {
       int shutDownAfterNumGCThrashing,
       boolean canDumpHeap,
       @Nullable String uploadToGCSPath,
-      File localDumpFolder) {
+      File localDumpFolder,
+      double gcThrashingPercentagePerPeriod) {
     return new MemoryMonitor(
         gcStatsProvider,
         sleepTimeMillis,
         shutDownAfterNumGCThrashing,
         canDumpHeap,
         uploadToGCSPath,
-        localDumpFolder);
+        localDumpFolder,
+        gcThrashingPercentagePerPeriod);
   }
 
   private MemoryMonitor(
@@ -231,13 +245,15 @@ public class MemoryMonitor implements Runnable, StatusDataProvider {
       int shutDownAfterNumGCThrashing,
       boolean canDumpHeap,
       @Nullable String uploadToGCSPath,
-      File localDumpFolder) {
+      File localDumpFolder,
+      double gcThrashingPercentagePerPeriod) {
     this.gcStatsProvider = gcStatsProvider;
     this.sleepTimeMillis = sleepTimeMillis;
     this.shutDownAfterNumGCThrashing = shutDownAfterNumGCThrashing;
     this.canDumpHeap = canDumpHeap;
     this.uploadToGCSPath = uploadToGCSPath;
     this.localDumpFolder = localDumpFolder;
+    this.gcThrashingPercentagePerPeriod = gcThrashingPercentagePerPeriod;
   }
 
   /** For testing only: Wait for the monitor to be running. */
